@@ -1,0 +1,9 @@
+import "dota_gcmessages_common.proto";
+
+option optimize_for = SPEED;
+option cc_generic_services = false;
+
+message MyMatch {
+	optional CMsgDOTAMatch matchDetail = 1;
+	optional bool isDownloaded = 2;
+}
