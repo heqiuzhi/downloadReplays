@@ -31,6 +31,8 @@ namespace DownloadDota2Replay
     /// </summary>
     public partial class MainWindow : ModernWindow
     {
+        private string downloadFolder;
+        private Dictionary<int, string> allTeams;
         private IDbConnection myDB;
         private Dota2Client dota2Client;
         private delegate void StartDota2ClientDelegate();
@@ -51,19 +53,37 @@ namespace DownloadDota2Replay
         {
             InitializeComponent();
 
+            //初始化要下载的队伍
+            allTeams = new Dictionary<int, string>();
+            allTeams.Add(4, "EHOME");
+            allTeams.Add(5, "IG");
+            allTeams.Add(15, "LGD");
+            allTeams.Add(20, "TongFu");//GetTeamInfo pro=false
+            allTeams.Add(726228, "VG");
+            allTeams.Add(1375614, "Newbee");
+            allTeams.Add(1520578, "CDEC");
+            allTeams.Add(1836806, "Wings");
+            allTeams.Add(1951061, "NB.Y");//GetTeamInfo pro=false
+            allTeams.Add(1983234, "Bheart");//GetTeamInfo pro=false
+            allTeams.Add(2208748, "DuoBao");//GetTeamInfo pro=false
+            allTeams.Add(2414475, "Way");//GetTeamInfo pro=false
+            allTeams.Add(2552118, "FTD.C");//GetTeamInfo pro=false
+            allTeams.Add(2626685, "EHOME.K");//GetTeamInfo pro=false 
+            allTeams.Add(2634810, "EHOME.L");//GetTeamInfo pro=false 
+            allTeams.Add(2635099, "CDEC.Y");
+            allTeams.Add(2640025, "IG.V");//GetTeamInfo pro=false
+            allTeams.Add(2643401, "CDEC.A");//GetTeamInfo pro=false
+            allTeams.Add(2777247, "VG.R");
+            allTeams.Add(2860081, "FTD.A");//GetTeamInfo pro=false
+            allTeams.Add(2860414, "TRG");//GetTeamInfo pro=false
+
+
             this.Title = "Dota2录像下载器——正在模拟DOTA2客户端登陆Steam...（请稍等）";
             Closing += this.OnWindowClosing;
 
-            //Set once before use (i.e. in a static constructor).
-            OrmLiteConfig.DialectProvider = SqliteDialect.Provider;
-
-            string path = System.AppDomain.CurrentDomain.BaseDirectory;
-            myDB = (path + @"\Assets\dota2.db").OpenDbConnection();
-
-            //把改建的表提前建好
-            myDB.CreateTableIfNotExists<MyMatch>();
-            //myDB.CreateTableIfNotExists<CMsgDOTAMatch>();
-
+            //初始化下载路径
+            downloadFolder = @"D:\Dota2Replays\";
+            downloadPathTB.Text = "当前路径:" + downloadFolder;
 
             //模拟DOTA2客户端，连接steam->登陆->开始Dota2游戏->收到OnClientWelcome消息（此时就可以向GC发消息了）
             StartDota2ClientDelegate startDota2ClientDelegate = new StartDota2ClientDelegate(this.StartDota2Client);
@@ -143,12 +163,12 @@ namespace DownloadDota2Replay
                             if (theMatch.matchDetail.replay_state == CMsgDOTAMatch.ReplayState.REPLAY_AVAILABLE)
                             {
                                 string match_replay_url = "http://replay" + theMatch.matchDetail.cluster.ToString() + ".valve.net/570/" + theMatch.matchDetail.match_id.ToString() + "_" + theMatch.matchDetail.replay_salt.ToString() + ".dem.bz2";
-                                string downloadFileName = System.AppDomain.CurrentDomain.BaseDirectory + @"\Assets\" + theMatch.matchDetail.match_id.ToString() + ".dem.bz2";
+                                string downloadFileName = downloadFolder + theMatch.matchDetail.match_id.ToString() + ".dem.bz2";
                                 //已经成功下载
-                                if (File.Exists(System.AppDomain.CurrentDomain.BaseDirectory + @"\Assets\" + theMatch.matchDetail.match_id.ToString() + ".dem"))
+                                if (File.Exists(downloadFolder + theMatch.matchDetail.match_id.ToString() + ".dem"))
                                     continue;
                                 //没下载完成,删掉重新下载
-                                if ((File.Exists(downloadFileName)) && (!File.Exists(System.AppDomain.CurrentDomain.BaseDirectory + @"\Assets\" + theMatch.matchDetail.match_id.ToString() + ".dem")))
+                                if ((File.Exists(downloadFileName)) && (!File.Exists(downloadFolder + theMatch.matchDetail.match_id.ToString() + ".dem")))
                                     File.Delete(downloadFileName);
                                 WebClient webClient = new WebClient();
                                 //webClient.DownloadFile(new Uri(match_replay_url), System.AppDomain.CurrentDomain.BaseDirectory + @"\Assets\" + theMatch.matchDetail.match_id.ToString() + ".dem.bz2");
@@ -184,7 +204,7 @@ namespace DownloadDota2Replay
                 downloadInfoTB.Text = "已下载" + matchNum.ToString() + "场比赛。";
             };
             this.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, action);
-            ExtractGZipSample(downloadFileName, System.AppDomain.CurrentDomain.BaseDirectory + @"\Assets\");
+            ExtractGZipSample(downloadFileName, downloadFolder);
         }
 
         public void ExtractGZipSample(string gzipFileName, string targetDir)
@@ -209,6 +229,16 @@ namespace DownloadDota2Replay
             }
         }
 
+        private void setDownloadPathDB_Click(object sender, RoutedEventArgs e)
+        {
+            System.Windows.Forms.FolderBrowserDialog folderBrowserDialog = new System.Windows.Forms.FolderBrowserDialog();
+            System.Windows.Forms.DialogResult result = folderBrowserDialog.ShowDialog();
+            if (result == System.Windows.Forms.DialogResult.OK)
+            {
+                downloadFolder = folderBrowserDialog.SelectedPath;
+                downloadPathTB.Text = "当前路径:" + downloadFolder;
+            }
+        }
     }
 
 }

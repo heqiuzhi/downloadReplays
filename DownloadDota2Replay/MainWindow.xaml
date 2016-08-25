@@ -8,9 +8,14 @@
     <ScrollViewer>
         <StackPanel>
             <TextBlock Text="MODERN UI FOR WPF" Style="{StaticResource Heading2}" />
-            <TextBlock Text="已下载：" Name="downloadInfoTB"/>
+            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                <Button Content="设置下载路径" Name="setDownloadPathDB" Click="setDownloadPathDB_Click" VerticalAlignment="Center"/>
+                <TextBlock Text="当前路径：" Name="downloadPathTB" VerticalAlignment="Center" Margin="5,0,0,0"/>
+            </StackPanel>
+            <TextBlock Text="已下载：" Name="downloadInfoTB" Margin="0,18,0,0"/>
             <TextBlock Text="当前正在下载：" Name="downloadingInfoTB"/>
-            <Button Content="下载录像" Name="downloadReplay" Click="downloadReplay_Click" IsEnabled="False" />
+            <Button Content="下载TI6线下赛录像" Name="downloadReplay" Click="downloadReplay_Click" IsEnabled="False" />
+            
         </StackPanel>
     </ScrollViewer>
 </mui:ModernWindow>
