@@ -14,8 +14,9 @@
             </StackPanel>
             <TextBlock Text="已下载：" Name="downloadInfoTB" Margin="0,18,0,0"/>
             <TextBlock Text="当前正在下载：" Name="downloadingInfoTB"/>
-            <Button Content="下载TI6线下赛录像" Name="downloadReplay" Click="downloadReplay_Click" IsEnabled="False" />
             
+            <Button Content="下载TI6线下赛录像" Name="downloadReplay" Click="downloadReplay_Click" IsEnabled="False" />
+            <Button Content="下载中国队伍6.87版本之后的比赛" Name="downloadCNReplaysB" Click="downloadCNReplaysB_Click" Margin="0,8,0,0" IsEnabled="False"/>
         </StackPanel>
     </ScrollViewer>
 </mui:ModernWindow>

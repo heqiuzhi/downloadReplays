@@ -31,14 +31,15 @@ namespace DownloadDota2Replay
     /// </summary>
     public partial class MainWindow : ModernWindow
     {
+        //注意，2016年4月26日更新的6.87版本，我们的软件只保存2016年4月27日之后的游戏的数据
+        //2016年4月27日0时0分0秒的UNIX时间戳为：1461686400
+        public static UInt64 Time_687 = 1461686400;
+
         private string downloadFolder;
         private Dictionary<int, string> allTeams;
-        private IDbConnection myDB;
         private Dota2Client dota2Client;
         private delegate void StartDota2ClientDelegate();
         private delegate void GetMatchDetailDelegate();
-
-
 
         //委托函数不能传参数，待修改
         private int matchNum = 0;
@@ -82,7 +83,7 @@ namespace DownloadDota2Replay
             Closing += this.OnWindowClosing;
 
             //初始化下载路径
-            downloadFolder = @"D:\Dota2Replays\";
+            downloadFolder = @"D:\";
             downloadPathTB.Text = "当前路径:" + downloadFolder;
 
             //模拟DOTA2客户端，连接steam->登陆->开始Dota2游戏->收到OnClientWelcome消息（此时就可以向GC发消息了）
@@ -98,18 +99,18 @@ namespace DownloadDota2Replay
             {
                 this.Title = "Dota2录像下载器——可以使用了！";
                 this.downloadReplay.IsEnabled = true;
+                this.downloadCNReplaysB.IsEnabled = true;
             };
             this.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, action);
-            
+
         }
 
-
-        private KeyValue repeatCallWebAPI(WebAPI.Interface APIInterface,string APIName, Dictionary<string, string> APIArgs,int APIVersion=1)
+        private KeyValue repeatCallWebAPI(WebAPI.Interface APIInterface, string APIName, Dictionary<string, string> APIArgs, int APIVersion = 1)
         {
             KeyValue keyValues = new KeyValue();
             try
             {
-                keyValues=APIInterface.Call(APIName, APIVersion, APIArgs);
+                keyValues = APIInterface.Call(APIName, APIVersion, APIArgs);
             }
             catch (WebException ex)
             {
@@ -122,14 +123,14 @@ namespace DownloadDota2Replay
         private void downloadReplay_Click(object sender, RoutedEventArgs e)
         {
             GetMatchDetailDelegate getMatchDetailDelegate = new GetMatchDetailDelegate(this.getMatchDetail);
-            getMatchDetailDelegate.BeginInvoke(null, null); 
+            getMatchDetailDelegate.BeginInvoke(null, null);
         }
 
         private void getMatchDetail()
         {
             using (WebAPI.Interface DOTA2Match_570 = WebAPI.GetInterface("IDOTA2Match_570", "5F578BA33DC48279C5C3026BBB7A6E2D"))
             {
-                
+
                 int results_remaining = int.MaxValue;
                 ulong lastMatchId = 0;
                 KeyValue kvMatchs = new KeyValue();
@@ -156,9 +157,9 @@ namespace DownloadDota2Replay
                         lastMatchId = aMatch["match_id"].AsUnsignedLong();
                         if (start_time >= 1470153600)//只计入外卡赛之后的数据
                         {
-                            
+
                             MyMatch theMatch = new MyMatch();
-                            theMatch.matchDetail= dota2Client.getMatchDetail(lastMatchId);
+                            theMatch.matchDetail = dota2Client.getMatchDetail(lastMatchId);
 
                             if (theMatch.matchDetail.replay_state == CMsgDOTAMatch.ReplayState.REPLAY_AVAILABLE)
                             {
@@ -175,18 +176,18 @@ namespace DownloadDota2Replay
                                 ServicePointManager.DefaultConnectionLimit = 512;
                                 webClient.DownloadProgressChanged += (sender, e) => MyProgressChanged(sender, e, theMatch.matchDetail.match_id);
                                 webClient.DownloadFileAsync(new Uri(match_replay_url), downloadFileName);
-                                webClient.DownloadFileCompleted += (sender,e) => Completed(sender,e, downloadFileName);
+                                webClient.DownloadFileCompleted += (sender, e) => Completed(sender, e, downloadFileName);
                             }
-                            
+
                         }
-                        
+
                     }
                 }
-                
+
             }
         }
 
-        private void MyProgressChanged(object sender, DownloadProgressChangedEventArgs e,ulong matchId)
+        private void MyProgressChanged(object sender, DownloadProgressChangedEventArgs e, ulong matchId)
         {
             Action action = () =>
             {
@@ -194,9 +195,8 @@ namespace DownloadDota2Replay
             };
             this.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, action);
         }
-        
 
-        private void Completed(object sender, AsyncCompletedEventArgs e,string downloadFileName)
+        private void Completed(object sender, AsyncCompletedEventArgs e, string downloadFileName)
         {
             matchNum++;
             Action action = () =>
@@ -215,7 +215,7 @@ namespace DownloadDota2Replay
 
             using (System.IO.Stream fs = new FileStream(gzipFileName, FileMode.Open, FileAccess.Read))
             {
-                using ( BZip2InputStream gzipStream = new BZip2InputStream(fs))
+                using (BZip2InputStream gzipStream = new BZip2InputStream(fs))
                 {
 
                     // Change this to your needs
@@ -235,10 +235,59 @@ namespace DownloadDota2Replay
             System.Windows.Forms.DialogResult result = folderBrowserDialog.ShowDialog();
             if (result == System.Windows.Forms.DialogResult.OK)
             {
-                downloadFolder = folderBrowserDialog.SelectedPath;
+                downloadFolder = folderBrowserDialog.SelectedPath + @"\";
                 downloadPathTB.Text = "当前路径:" + downloadFolder;
             }
         }
-    }
 
+        public void downloadAReplay(string downloadFolder, MyMatch theMatch)
+        {
+            string match_replay_url = "http://replay" + theMatch.matchDetail.cluster.ToString() + ".valve.net/570/" + theMatch.matchDetail.match_id.ToString() + "_" + theMatch.matchDetail.replay_salt.ToString() + ".dem.bz2";
+            string downloadFileName = downloadFolder + theMatch.matchDetail.match_id.ToString() + ".dem.bz2";
+            //已经成功下载并解压
+            if (File.Exists(downloadFolder + theMatch.matchDetail.match_id.ToString() + ".dem"))
+                return;
+            //没下载并解压完成,删掉重新下载
+//            if ((File.Exists(downloadFileName)) && (!File.Exists(downloadFolder + theMatch.matchDetail.match_id.ToString() + ".dem")))
+  //              File.Delete(downloadFileName);
+            WebClient webClient = new WebClient();
+            //webClient.DownloadFile(new Uri(match_replay_url), System.AppDomain.CurrentDomain.BaseDirectory + @"\Assets\" + theMatch.matchDetail.match_id.ToString() + ".dem.bz2");
+            ServicePointManager.DefaultConnectionLimit = 512;
+            webClient.DownloadProgressChanged += (sender, e) => MyProgressChanged(sender, e, theMatch.matchDetail.match_id);
+            webClient.DownloadFileAsync(new Uri(match_replay_url), downloadFileName);
+            webClient.DownloadFileCompleted += (sender, e) => Completed(sender, e, downloadFileName);
+        }
+
+        private void downloadCNReplaysB_Click(object sender, RoutedEventArgs e)
+        {
+            GetMatchDetailDelegate downloadCNReplaysDelegate = new GetMatchDetailDelegate(this.downloadCNReplaysB_func);
+            downloadCNReplaysDelegate.BeginInvoke(null, null);
+        }
+
+        private void downloadCNReplaysB_func()
+        {
+            using (WebAPI.Interface DOTA2Teams_570 = WebAPI.GetInterface("IDOTA2Teams_570", "5F578BA33DC48279C5C3026BBB7A6E2D"))
+            {
+                foreach (var aTeam in allTeams)
+                {
+                    KeyValue kvMatchs = new KeyValue();
+                    Dictionary<string, string> newsArgs = new Dictionary<string, string>();
+                    newsArgs["team_id"] = aTeam.Key.ToString();
+                    kvMatchs = repeatCallWebAPI(DOTA2Teams_570, "GetTeamInfo", newsArgs);
+
+                    foreach (KeyValue aMatch in kvMatchs["teams"]?.Children[0]?["recent_match_ids"]?.Children)
+                    {
+                        MyMatch theMatch = new MyMatch();
+                        theMatch.matchDetail = dota2Client.getMatchDetail(Convert.ToUInt64(aMatch.Value));
+                        if ((theMatch.matchDetail.replay_state == CMsgDOTAMatch.ReplayState.REPLAY_AVAILABLE)
+                        && (theMatch.matchDetail.startTime >= Time_687))
+                        {
+                            downloadAReplay(downloadFolder, theMatch);
+                        }
+
+                    }
+                }
+            }
+        }
+    }
 }
