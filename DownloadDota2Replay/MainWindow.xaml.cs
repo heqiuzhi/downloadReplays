@@ -164,20 +164,7 @@ namespace DownloadDota2Replay
 
                             if (theMatch.matchDetail.replay_state == CMsgDOTAMatch.ReplayState.REPLAY_AVAILABLE)
                             {
-                                string match_replay_url = "http://replay" + theMatch.matchDetail.cluster.ToString() + ".valve.net/570/" + theMatch.matchDetail.match_id.ToString() + "_" + theMatch.matchDetail.replay_salt.ToString() + ".dem.bz2";
-                                string downloadFileName = downloadFolder + theMatch.matchDetail.match_id.ToString() + ".dem.bz2";
-                                //已经成功下载
-                                if (File.Exists(downloadFolder + theMatch.matchDetail.match_id.ToString() + ".dem"))
-                                    continue;
-                                //没下载完成,删掉重新下载
-                                if ((File.Exists(downloadFileName)) && (!File.Exists(downloadFolder + theMatch.matchDetail.match_id.ToString() + ".dem")))
-                                    File.Delete(downloadFileName);
-                                WebClient webClient = new WebClient();
-                                //webClient.DownloadFile(new Uri(match_replay_url), System.AppDomain.CurrentDomain.BaseDirectory + @"\Assets\" + theMatch.matchDetail.match_id.ToString() + ".dem.bz2");
-                                ServicePointManager.DefaultConnectionLimit = 512;
-                                webClient.DownloadProgressChanged += (sender, e) => MyProgressChanged(sender, e, theMatch.matchDetail.match_id);
-                                webClient.DownloadFileAsync(new Uri(match_replay_url), downloadFileName);
-                                webClient.DownloadFileCompleted += (sender, e) => Completed(sender, e, downloadFileName);
+                                downloadAReplay(downloadFolder, theMatch);
                             }
 
                         }
