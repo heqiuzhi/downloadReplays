@@ -36,6 +36,7 @@ namespace DownloadDota2Replay
         public static UInt64 Time_687 = 1461686400;
 
         private string downloadFolder;
+        private Dictionary<ulong, bool> downloadingMatchs;
         private Dictionary<int, string> allTeams;
         private Dota2Client dota2Client;
         private delegate void StartDota2ClientDelegate();
@@ -191,20 +192,26 @@ namespace DownloadDota2Replay
         {
             Action action = () =>
             {
+                downloadInfoTB.Text = "正在下载(" + downloadingMatchs.Count() + ")," + "已下载完成(" + matchNum.ToString() + ")";
                 downloadingInfoTB.Text = "当前正在下载：" + matchId.ToString() + "进度：" + e.ProgressPercentage.ToString() + "%";
             };
             this.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, action);
         }
 
-        private void Completed(object sender, AsyncCompletedEventArgs e, string downloadFileName)
+        private void Completed(object sender, AsyncCompletedEventArgs e, string downloadFileName,ulong matchID)
         {
             matchNum++;
             Action action = () =>
             {
-                downloadInfoTB.Text = "已下载" + matchNum.ToString() + "场比赛。";
+                downloadInfoTB.Text ="正在下载("+downloadingMatchs.Count()+")," +"已下载完成(" + matchNum.ToString() + ")";
             };
             this.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, action);
             ExtractGZipSample(downloadFileName, downloadFolder);
+            //下载成功，解压完成，移除正在下载标志
+            downloadingMatchs.Remove(matchID);
+            //删掉压缩文件
+            if ( File.Exists(downloadFileName) && File.Exists(downloadFolder + matchID.ToString() + ".dem") )
+                File.Delete(downloadFileName);
         }
 
         public void ExtractGZipSample(string gzipFileName, string targetDir)
@@ -213,7 +220,7 @@ namespace DownloadDota2Replay
             // Use a 4K buffer. Any larger is a waste.    
             byte[] dataBuffer = new byte[4096];
 
-            using (System.IO.Stream fs = new FileStream(gzipFileName, FileMode.Open, FileAccess.Read))
+            using (FileStream fs = new FileStream(gzipFileName, FileMode.Open, FileAccess.Read))
             {
                 using (BZip2InputStream gzipStream = new BZip2InputStream(fs))
                 {
@@ -247,6 +254,11 @@ namespace DownloadDota2Replay
             //已经成功下载并解压
             if (File.Exists(downloadFolder + theMatch.matchDetail.match_id.ToString() + ".dem"))
                 return;
+            //该录像正在被下载
+            if (downloadingMatchs.ContainsKey(theMatch.matchDetail.match_id))
+                return;
+            else
+                downloadingMatchs.Add(theMatch.matchDetail.match_id, true);
             //没下载并解压完成,删掉重新下载
 //            if ((File.Exists(downloadFileName)) && (!File.Exists(downloadFolder + theMatch.matchDetail.match_id.ToString() + ".dem")))
   //              File.Delete(downloadFileName);
@@ -255,7 +267,7 @@ namespace DownloadDota2Replay
             ServicePointManager.DefaultConnectionLimit = 512;
             webClient.DownloadProgressChanged += (sender, e) => MyProgressChanged(sender, e, theMatch.matchDetail.match_id);
             webClient.DownloadFileAsync(new Uri(match_replay_url), downloadFileName);
-            webClient.DownloadFileCompleted += (sender, e) => Completed(sender, e, downloadFileName);
+            webClient.DownloadFileCompleted += (sender, e) => Completed(sender, e, downloadFileName,theMatch.matchDetail.match_id);
         }
 
         private void downloadCNReplaysB_Click(object sender, RoutedEventArgs e)
