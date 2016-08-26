@@ -79,6 +79,7 @@ namespace DownloadDota2Replay
             allTeams.Add(2860081, "FTD.A");//GetTeamInfo pro=false
             allTeams.Add(2860414, "TRG");//GetTeamInfo pro=false
 
+            
 
             this.Title = "Dota2录像下载器——正在模拟DOTA2客户端登陆Steam...（请稍等）";
             Closing += this.OnWindowClosing;
@@ -203,24 +204,21 @@ namespace DownloadDota2Replay
 
         public void ExtractGZipSample(string gzipFileName, string targetDir)
         {
-
-            // Use a 4K buffer. Any larger is a waste.    
-            byte[] dataBuffer = new byte[4096];
-
-            using (FileStream fs = new FileStream(gzipFileName, FileMode.Open, FileAccess.Read))
+            FileStream fileIn = new FileStream(gzipFileName, FileMode.Open, FileAccess.Read);
+            string fnOut = System.IO.Path.Combine(targetDir, System.IO.Path.GetFileNameWithoutExtension(gzipFileName));
+            FileStream fileOut = File.Create(fnOut);
+            try
             {
-                using (BZip2InputStream gzipStream = new BZip2InputStream(fs))
+                using (BZip2InputStream bzipInput = new BZip2InputStream(fileIn))
                 {
-
-                    // Change this to your needs
-                    string fnOut = System.IO.Path.Combine(targetDir, System.IO.Path.GetFileNameWithoutExtension(gzipFileName));
-
-                    using (FileStream fsOut = File.Create(fnOut))
-                    {
-                        StreamUtils.Copy(gzipStream, fsOut, dataBuffer);
-                    }
+                    StreamUtils.Copy(bzipInput, fileOut, new byte[4096]);
                 }
             }
+            finally
+            {
+                fileOut.Close();
+            }
+
         }
 
         private void setDownloadPathDB_Click(object sender, RoutedEventArgs e)
