@@ -23,6 +23,8 @@ using System.Runtime.Serialization;
 using System.IO;
 using ICSharpCode.SharpZipLib.BZip2;
 using ICSharpCode.SharpZipLib.Core;
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json;
 
 namespace DownloadDota2Replay
 {
@@ -83,6 +85,8 @@ namespace DownloadDota2Replay
 
             this.Title = "Dota2录像下载器——正在模拟DOTA2客户端登陆Steam...（请稍等）";
             Closing += this.OnWindowClosing;
+
+            downloadingMatchs = new Dictionary<ulong, bool>();
 
             //初始化下载路径
             downloadFolder = @"D:\";
@@ -188,18 +192,25 @@ namespace DownloadDota2Replay
 
         private void Completed(object sender, AsyncCompletedEventArgs e, string downloadFileName,ulong matchID)
         {
-            matchNum++;
-            Action action = () =>
+            if (e.Error != null)
             {
-                downloadInfoTB.Text ="正在下载("+downloadingMatchs.Count()+")," +"已下载完成(" + matchNum.ToString() + ")";
-            };
-            this.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, action);
-            ExtractGZipSample(downloadFileName, downloadFolder);
-            //下载成功，解压完成，移除正在下载标志
-            downloadingMatchs.Remove(matchID);
-            //删掉压缩文件
-            if ( File.Exists(downloadFileName) && File.Exists(downloadFolder + matchID.ToString() + ".dem") )
-                File.Delete(downloadFileName);
+                //下载出错，暂不处理
+            }
+            else if (!e.Cancelled)
+            {
+                matchNum++;
+                Action action = () =>
+                {
+                    downloadInfoTB.Text = "正在下载(" + downloadingMatchs.Count() + ")," + "已下载完成(" + matchNum.ToString() + ")";
+                };
+                this.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, action);
+                ExtractGZipSample(downloadFileName, downloadFolder);
+                //下载成功，解压完成，移除正在下载标志
+                downloadingMatchs.Remove(matchID);
+                //删掉压缩文件
+                if (File.Exists(downloadFileName) && File.Exists(downloadFolder + matchID.ToString() + ".dem"))
+                    File.Delete(downloadFileName);
+            }
         }
 
         public void ExtractGZipSample(string gzipFileName, string targetDir)
@@ -213,6 +224,14 @@ namespace DownloadDota2Replay
                 {
                     StreamUtils.Copy(bzipInput, fileOut, new byte[4096]);
                 }
+            }
+            catch (Exception e)
+            {
+                //压缩不成功，就把元数据和压缩后的数据通通删掉
+                if (File.Exists(gzipFileName))
+                    File.Delete(gzipFileName);
+                if (File.Exists(fnOut))
+                    File.Delete(fnOut);
             }
             finally
             {
@@ -244,12 +263,15 @@ namespace DownloadDota2Replay
                 return;
             else
                 downloadingMatchs.Add(theMatch.matchDetail.match_id, true);
+            //该录像正在被下载
+            if (File.Exists(downloadFileName))
+                return;
             //没下载并解压完成,删掉重新下载
-//            if ((File.Exists(downloadFileName)) && (!File.Exists(downloadFolder + theMatch.matchDetail.match_id.ToString() + ".dem")))
-  //              File.Delete(downloadFileName);
-            WebClient webClient = new WebClient();
+            //            if ((File.Exists(downloadFileName)) && (!File.Exists(downloadFolder + theMatch.matchDetail.match_id.ToString() + ".dem")))
+            //              File.Delete(downloadFileName);
+                WebClient webClient = new WebClient();
             //webClient.DownloadFile(new Uri(match_replay_url), System.AppDomain.CurrentDomain.BaseDirectory + @"\Assets\" + theMatch.matchDetail.match_id.ToString() + ".dem.bz2");
-            ServicePointManager.DefaultConnectionLimit = 512;
+            ServicePointManager.DefaultConnectionLimit = 1024;
             webClient.DownloadProgressChanged += (sender, e) => MyProgressChanged(sender, e, theMatch.matchDetail.match_id);
             webClient.DownloadFileAsync(new Uri(match_replay_url), downloadFileName);
             webClient.DownloadFileCompleted += (sender, e) => Completed(sender, e, downloadFileName,theMatch.matchDetail.match_id);
@@ -274,6 +296,7 @@ namespace DownloadDota2Replay
 
                     foreach (KeyValue aMatch in kvMatchs["teams"]?.Children[0]?["recent_match_ids"]?.Children)
                     {
+
                         MyMatch theMatch = new MyMatch();
                         theMatch.matchDetail = dota2Client.getMatchDetail(Convert.ToUInt64(aMatch.Value));
                         if ((theMatch.matchDetail.replay_state == CMsgDOTAMatch.ReplayState.REPLAY_AVAILABLE)
@@ -285,6 +308,18 @@ namespace DownloadDota2Replay
                     }
                 }
             }
+        }
+
+        private void downloadCNPlayer_Click(object sender, RoutedEventArgs e)
+        {
+            //JObject playerInfoJson = MyDB.getJsonFromUrl("https://api.steampowered.com/IDOTA2Fantasy_570/GetPlayerOfficialInfo/v1?key=B10886B8E33831797C6255C638947E27"  + "&accountid=" + aMatchPlayer.account_id.ToString());
+            JObject playerInfoJson = MyDB.getJsonFromUrl("https://api.steampowered.com/IDOTA2Fantasy_570/GetProPlayerList/v1?key=F28A3D405444746165FCC271D1374102");
+            List<Player> allPlayers = JsonConvert.DeserializeObject<List<Player>>(playerInfoJson["player_infos"].ToString());
+            foreach (Player aPlayer in allPlayers) {
+                if (allTeams.ContainsKey(aPlayer.team_id)||aPlayer.country_code=="cn")
+                    MyDB.mysqlDB.Save(aPlayer);
+            }
+            
         }
     }
 }
