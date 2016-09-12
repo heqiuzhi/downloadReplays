@@ -208,8 +208,8 @@ namespace DownloadDota2Replay
                 //下载成功，解压完成，移除正在下载标志
                 downloadingMatchs.Remove(matchID);
                 //删掉压缩文件
-                if (File.Exists(downloadFileName) && File.Exists(downloadFolder + matchID.ToString() + ".dem"))
-                    File.Delete(downloadFileName);
+                //if (File.Exists(downloadFileName) && File.Exists(downloadFolder + matchID.ToString() + ".dem"))
+                    //File.Delete(downloadFileName);
             }
         }
 
@@ -320,6 +320,20 @@ namespace DownloadDota2Replay
                     MyDB.mysqlDB.Save(aPlayer);
             }
             
+        }
+
+        private void downloadAGame_Click(object sender, RoutedEventArgs e)
+        {
+            MyMatch theMatch = new MyMatch();
+            theMatch.matchDetail = dota2Client.getMatchDetail(Convert.ToUInt64(matchIdTB.Text));
+            if (theMatch.matchDetail.replay_state == CMsgDOTAMatch.ReplayState.REPLAY_AVAILABLE)
+            {
+                string match_replay_url = "http://replay" + theMatch.matchDetail.cluster.ToString() + ".valve.net/570/" + theMatch.matchDetail.match_id.ToString() + "_" + theMatch.matchDetail.replay_salt.ToString() + ".dem.bz2";
+                matchIdTB.Text = match_replay_url;
+                downloadAReplay(downloadFolder, theMatch);
+            }
+            else
+                MessageBox.Show("无法下载此录像：" + theMatch.matchDetail.replay_state.ToString());
         }
     }
 }
