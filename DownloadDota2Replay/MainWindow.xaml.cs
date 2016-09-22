@@ -89,7 +89,7 @@ namespace DownloadDota2Replay
             downloadingMatchs = new Dictionary<ulong, bool>();
 
             //初始化下载路径
-            downloadFolder = @"D:\";
+            downloadFolder = @"C:\dota2replay\";
             downloadPathTB.Text = "当前路径:" + downloadFolder;
 
             //模拟DOTA2客户端，连接steam->登陆->开始Dota2游戏->收到OnClientWelcome消息（此时就可以向GC发消息了）
@@ -208,8 +208,8 @@ namespace DownloadDota2Replay
                 //下载成功，解压完成，移除正在下载标志
                 downloadingMatchs.Remove(matchID);
                 //删掉压缩文件
-                //if (File.Exists(downloadFileName) && File.Exists(downloadFolder + matchID.ToString() + ".dem"))
-                    //File.Delete(downloadFileName);
+                if (File.Exists(downloadFileName) && File.Exists(downloadFolder + matchID.ToString() + ".dem"))
+                    File.Delete(downloadFileName);
             }
         }
 
@@ -334,6 +334,69 @@ namespace DownloadDota2Replay
             }
             else
                 MessageBox.Show("无法下载此录像：" + theMatch.matchDetail.replay_state.ToString());
+        }
+
+        private void downloadLeagueGame_Click(object sender, RoutedEventArgs e)
+        {
+            //1474214400=2016/9/19 0:0:0
+            ulong beginTime = 1474214400;
+
+            //下载MDL
+            downloadALeagueGames(4918, beginTime);
+
+            //下载SDO
+            downloadALeagueGames(4875, beginTime);
+
+            //Dota 2 Professional League 2016
+            downloadALeagueGames(4920, beginTime);
+
+            //中国Dota 2职业联赛:http://dpl.marstv.com/
+            downloadALeagueGames(4693, beginTime);
+        }
+
+        private void downloadALeagueGames(int leagueId,ulong beginTime)
+        {
+            using (WebAPI.Interface DOTA2Match_570 = WebAPI.GetInterface("IDOTA2Match_570", "5F578BA33DC48279C5C3026BBB7A6E2D"))
+            {
+                int results_remaining = int.MaxValue;
+                ulong lastMatchId = 0;
+                KeyValue kvMatchs = new KeyValue();
+                while (results_remaining != 0)
+                {
+                    if (results_remaining == int.MaxValue)//第一次调用GetMatchHistory接口
+                    {
+                        Dictionary<string, string> newsArgs = new Dictionary<string, string>();
+                        newsArgs["league_id"] = leagueId.ToString();
+                        kvMatchs = repeatCallWebAPI(DOTA2Match_570, "GetMatchHistory", newsArgs);
+                    }
+                    else
+                    {
+                        Dictionary<string, string> newsArgs = new Dictionary<string, string>();
+                        newsArgs["league_id"] = leagueId.ToString();
+                        newsArgs["start_at_match_id"] = lastMatchId.ToString();
+                        kvMatchs = repeatCallWebAPI(DOTA2Match_570, "GetMatchHistory", newsArgs);
+                    }
+
+                    results_remaining = kvMatchs["results_remaining"].AsInteger();
+                    foreach (KeyValue aMatch in kvMatchs["matches"].Children)
+                    {
+                        ulong start_time = aMatch["start_time"].AsUnsignedLong();
+                        lastMatchId = aMatch["match_id"].AsUnsignedLong();
+                        if (start_time >= beginTime)
+                        {
+                            MyMatch theMatch = new MyMatch();
+                            theMatch.matchDetail = dota2Client.getMatchDetail(lastMatchId);
+
+                            if (theMatch.matchDetail.replay_state == CMsgDOTAMatch.ReplayState.REPLAY_AVAILABLE)
+                            {
+                                downloadAReplay(downloadFolder, theMatch);
+                            }
+
+                        }
+                    }
+                }
+
+            }
         }
     }
 }
