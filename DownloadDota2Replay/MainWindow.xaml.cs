@@ -338,6 +338,12 @@ namespace DownloadDota2Replay
 
         private void downloadLeagueGame_Click(object sender, RoutedEventArgs e)
         {
+            GetMatchDetailDelegate downloadCNReplaysDelegate = new GetMatchDetailDelegate(this.downloadLeagueGameFunc);
+            downloadCNReplaysDelegate.BeginInvoke(null, null);
+        }
+
+        private void downloadLeagueGameFunc()
+        {
             //1474214400=2016/9/19 0:0:0
             ulong beginTime = 1474214400;
 
@@ -352,7 +358,14 @@ namespace DownloadDota2Replay
 
             //中国Dota 2职业联赛:http://dpl.marstv.com/
             downloadALeagueGames(4693, beginTime);
+
+            //南洋杯
+            downloadALeagueGames(4660, beginTime);
+
+            //WCA
+            downloadALeagueGames(4525, beginTime);
         }
+
 
         private void downloadALeagueGames(int leagueId,ulong beginTime)
         {
