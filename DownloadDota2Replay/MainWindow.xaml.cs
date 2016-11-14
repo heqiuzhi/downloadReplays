@@ -25,6 +25,7 @@ using ICSharpCode.SharpZipLib.BZip2;
 using ICSharpCode.SharpZipLib.Core;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
+using System.Net.Http;
 
 namespace DownloadDota2Replay
 {
@@ -94,7 +95,7 @@ namespace DownloadDota2Replay
 
             //模拟DOTA2客户端，连接steam->登陆->开始Dota2游戏->收到OnClientWelcome消息（此时就可以向GC发消息了）
             StartDota2ClientDelegate startDota2ClientDelegate = new StartDota2ClientDelegate(this.StartDota2Client);
-            startDota2ClientDelegate.BeginInvoke(null, null);
+            //startDota2ClientDelegate.BeginInvoke(null, null);
         }
 
         private void StartDota2Client()
@@ -313,13 +314,59 @@ namespace DownloadDota2Replay
         private void downloadCNPlayer_Click(object sender, RoutedEventArgs e)
         {
             //JObject playerInfoJson = MyDB.getJsonFromUrl("https://api.steampowered.com/IDOTA2Fantasy_570/GetPlayerOfficialInfo/v1?key=B10886B8E33831797C6255C638947E27"  + "&accountid=" + aMatchPlayer.account_id.ToString());
-            JObject playerInfoJson = MyDB.getJsonFromUrl("https://api.steampowered.com/IDOTA2Fantasy_570/GetProPlayerList/v1?key=F28A3D405444746165FCC271D1374102");
+            JObject playerInfoJson = myGetJsonFromUrl("https://api.steampowered.com/IDOTA2Fantasy_570/GetProPlayerList/v1?key=F28A3D405444746165FCC271D1374102");
             List<Player> allPlayers = JsonConvert.DeserializeObject<List<Player>>(playerInfoJson["player_infos"].ToString());
             foreach (Player aPlayer in allPlayers) {
                 if (allTeams.ContainsKey(aPlayer.team_id)||aPlayer.country_code=="cn")
                     MyDB.mysqlDB.Save(aPlayer);
             }
             
+        }
+
+        private void downloadHeroPic_Click(object sender, RoutedEventArgs e)
+        {
+            JObject heroInfoJson = myGetJsonFromUrl("https://api.steampowered.com/IEconDOTA2_570/GetHeroes/v1/?key=F28A3D405444746165FCC271D1374102");
+            List<Hero> allHeros = JsonConvert.DeserializeObject<List<Hero>>(heroInfoJson["result"]["heroes"].ToString());
+            foreach (Hero aHero in allHeros)
+            {
+                WebClient webClient = new WebClient();
+                ServicePointManager.DefaultConnectionLimit = 1024;
+                string url = "http://cdn.dota2.com/apps/dota2/images/heroes/" + aHero.name.Substring(14) + "_sb.png";
+                string filePath= "C:/heroPic/" + aHero.name.Substring(14) + ".png";
+                webClient.DownloadFileAsync(new Uri(url), filePath);
+            }
+        }
+
+        private  JObject myGetJsonFromUrl(string url)
+        {
+
+            try
+            {
+                JObject objectJson;
+                var handler = new HttpClientHandler() { AutomaticDecompression = DecompressionMethods.GZip };
+                using (var http = new HttpClient(handler))
+                {
+                    Task<HttpResponseMessage> taskGet = http.GetAsync(url);
+                    taskGet.Wait();
+                    var response = taskGet.Result;
+                    if (response.StatusCode != HttpStatusCode.OK && response.StatusCode == HttpStatusCode.ServiceUnavailable)
+                    {
+                        System.Threading.Thread.Sleep(31000);
+                        return myGetJsonFromUrl(url);
+                    }
+                    response.EnsureSuccessStatusCode();//正式程序不报错的好?
+                    Task<string> taskRead = response.Content.ReadAsStringAsync();
+                    taskRead.Wait();
+                    objectJson = JObject.Parse(taskRead.Result);
+                }
+                return objectJson;
+            }
+            catch (Exception ex)
+            {
+                //这里想要捕获网络异常，继续尝试获取数据
+                //这样写，网络连接恢复后，是可以继续获取数据的！
+                return myGetJsonFromUrl(url);
+            }
         }
 
         private void downloadAGame_Click(object sender, RoutedEventArgs e)
@@ -411,5 +458,6 @@ namespace DownloadDota2Replay
 
             }
         }
+        
     }
 }
